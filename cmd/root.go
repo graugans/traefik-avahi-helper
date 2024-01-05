@@ -14,12 +14,24 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func HostNameReceiver(ch <-chan string) {
+	for {
+		hostname := <-ch
+		fmt.Printf("Found %s\n", hostname)
+	}
+}
+
 func rootCmdRunE(cmd *cobra.Command, args []string) error {
+
+	hostNameChannel := make(chan string)
+	go HostNameReceiver(hostNameChannel)
+
 	cli, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		return err
 	}
-	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{})
+	ctxWithBackground := context.Background()
+	containers, err := cli.ContainerList(ctxWithBackground, types.ContainerListOptions{})
 	if err != nil {
 		return err
 	}
@@ -32,7 +44,6 @@ func rootCmdRunE(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	var hostnames []string = []string{}
 	for _, container := range containers {
 		fmt.Printf("Checking container ID: %s, Name: %s\n", container.ID[:10], container.Image)
 		if container.Labels["traefik.enable"] == "true" {
@@ -41,17 +52,35 @@ func rootCmdRunE(cmd *cobra.Command, args []string) error {
 					match := domainRe.FindStringSubmatch(value)
 					if len(match) > 0 {
 						hostname := match[0]
-						hostnames = append(hostnames, hostname)
-						fmt.Printf("   Found %s\n", hostname)
+						hostNameChannel <- hostname
 					}
 				}
 			}
 		}
 	}
 
-	fmt.Println("Found hostnames:")
-	for i := range hostnames {
-		fmt.Printf("    - %s\n", hostnames[i])
+	msgs, errs := cli.Events(context.Background(), types.EventsOptions{})
+
+	for {
+		select {
+		case err := <-errs:
+			fmt.Println("Error: ", err)
+		case msg := <-msgs:
+			if msg.Type == "container" && msg.Action == "attach" {
+				fmt.Println("Type: ", msg.Type, "Action: ", msg.Action)
+				if msg.Actor.Attributes["traefik.enable"] == "true" {
+					for key, value := range msg.Actor.Attributes {
+						if labelRe.Match([]byte(key)) {
+							match := domainRe.FindStringSubmatch(value)
+							if len(match) > 0 {
+								hostname := match[0]
+								hostNameChannel <- hostname
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 	return err
 }
