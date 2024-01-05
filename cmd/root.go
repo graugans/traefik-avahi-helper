@@ -7,26 +7,51 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"regexp"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/spf13/cobra"
 )
 
-var (
-	defaultDockerHost string = "unix:///var/run/docker.sock"
-)
-
 func rootCmdRunE(cmd *cobra.Command, args []string) error {
-	var err error
 	cli, err := client.NewClientWithOpts(client.FromEnv)
+	if err != nil {
+		return err
+	}
 	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{})
 	if err != nil {
-		panic(err)
+		return err
 	}
 
+	labelRe, err := regexp.Compile(`traefik\.http\.routers\.(.*)\.rule`) // error if regexp invalid
+	if err != nil {
+		return err
+	}
+	domainRe, err := regexp.Compile(`(?P<domain>[^\x60]*?\.local)`) // error if regexp invalid
+	if err != nil {
+		return err
+	}
+	var hostnames []string = []string{}
 	for _, container := range containers {
-		fmt.Printf("%s %s\n", container.ID[:10], container.Image)
+		fmt.Printf("Checking container ID: %s, Name: %s\n", container.ID[:10], container.Image)
+		if container.Labels["traefik.enable"] == "true" {
+			for key, value := range container.Labels {
+				if labelRe.Match([]byte(key)) {
+					match := domainRe.FindStringSubmatch(value)
+					if len(match) > 0 {
+						hostname := match[0]
+						hostnames = append(hostnames, hostname)
+						fmt.Printf("   Found %s\n", hostname)
+					}
+				}
+			}
+		}
+	}
+
+	fmt.Println("Found hostnames:")
+	for i := range hostnames {
+		fmt.Printf("    - %s\n", hostnames[i])
 	}
 	return err
 }
