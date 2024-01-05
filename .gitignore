@@ -1,4 +1,2 @@
-# The config file
-config.yaml
 # The default executable file
 traefik-avahi-helper
