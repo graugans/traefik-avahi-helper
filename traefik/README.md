@@ -1,6 +1,6 @@
 # Introduction
 
-This file is based on the [basic-example](https://doc.traefik.io/traefik/user-guides/docker-compose/basic-example/) from the Traefic user guide.
+This file is based on the [basic-example](https://doc.traefik.io/traefik/user-guides/docker-compose/basic-example/) from the Traefik user guide.
 
 ## TODO
 
