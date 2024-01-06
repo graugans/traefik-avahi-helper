@@ -1,6 +1,6 @@
 <p align="center">
   <img src="https://img.shields.io/github/v/tag/graugans/traefik-avahi-helper" alt="GitHub tag (with filter)">
-  <img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg    " alt="The Apache-2 License">
+  <img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="The Apache-2 License">
   <img src="https://github.com/graugans/traefik-avahi-helper/actions/workflows/commit.yml/badge.svg" alt="Build Status">
 </p>
 
