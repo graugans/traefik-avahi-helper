@@ -1,0 +1,7 @@
+.gitignore
+.git/
+.github/
+traefik/
+Dockerfile
+*.md
+LICENSE
