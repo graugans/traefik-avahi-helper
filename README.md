@@ -10,4 +10,4 @@ When using the reverse proxy [Træfik](https://traefik.io) in a local setup one 
 This is a WIP so please do not expect a working solution.
 
 ## LICENSE
-This software is released under the Apache-2 license. See the [LICENSE](LICENSE) file for details.
+This software is released under the Apache-2 license. See the [LICENSE](LICENSE) file for details. Some of the resources are released under the MIT License. Please check the related files
