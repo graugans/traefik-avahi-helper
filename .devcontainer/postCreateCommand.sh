@@ -15,6 +15,11 @@ go get github.com/spf13/cobra
 # Go Viper
 go get github.com/spf13/viper
 
+# Avahi related stuff
+go get github.com/godbus/dbus/v5
+go get github.com/holoplot/go-avahi
+go get github.com/miekg/dns
+
 # Generate the cobra config file
 cat << EOF > ~/.cobra.yaml
 author: Christian Ege <ch@ege.io>

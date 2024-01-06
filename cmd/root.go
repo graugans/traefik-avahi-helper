@@ -8,11 +8,13 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"slices"
 	"sync"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/graugans/traefik-avahi-helper/internal"
+	"github.com/graugans/traefik-avahi-helper/internal/avahi"
 	"github.com/spf13/cobra"
 )
 
@@ -28,13 +30,32 @@ type hostNameStatus struct {
 	state HostnameStatus
 }
 
-func hostNameReceiver(ch <-chan hostNameStatus) {
+func hostNameReceiver(publisher *avahi.Publisher, ch <-chan hostNameStatus) {
+	hosts := []string{}
 	for {
 		host := <-ch
 		if host.state == hostIsAdded {
 			fmt.Printf("Add hostname: %s\n", host.name)
+			if !slices.Contains(hosts, host.name) {
+				hosts = append(hosts, host.name)
+			}
+
 		} else {
 			fmt.Printf("Remove hostname: %s\n", host.name)
+			if slices.Contains(hosts, host.name) {
+				index := slices.Index(hosts, host.name)
+				hosts = append(hosts[:index], hosts[index+1:]...)
+			}
+		}
+		if len(hosts) > 0 {
+			fmt.Println("The host names we manage:")
+			for i := range hosts {
+				fmt.Println("   - ", hosts[i])
+			}
+		}
+		err := publisher.PublishCNAMES(hosts, 600)
+		if err != nil {
+			fmt.Println("Error while Publishing CNAMES: ", err)
 		}
 	}
 }
@@ -111,10 +132,19 @@ func rootCmdRunE(cmd *cobra.Command, args []string) error {
 	var err error
 	var cli *client.Client
 
+	fmt.Println("Creating publisher")
+	publisher, err := avahi.NewPublisher()
+	if err != nil {
+		return fmt.Errorf("failed to create publisher: %w", err)
+	}
+
+	fqdn := publisher.Fqdn()
+	fmt.Printf("FQDN from Avahi: %s\n", fqdn)
+
 	hostNameChannel := make(chan hostNameStatus)
 	wg.Add(1)
 	go func() {
-		hostNameReceiver(hostNameChannel)
+		hostNameReceiver(publisher, hostNameChannel)
 		wg.Done()
 	}()
 
