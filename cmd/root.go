@@ -16,15 +16,31 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func hostNameReceiver(ch <-chan string) {
+type HostnameStatus int
+
+const (
+	hostIsAdded   = 0
+	hostIsRemoved = 1
+)
+
+type hostNameStatus struct {
+	name  string
+	state HostnameStatus
+}
+
+func hostNameReceiver(ch <-chan hostNameStatus) {
 	for {
-		hostname := <-ch
-		fmt.Printf("Found %s\n", hostname)
+		host := <-ch
+		if host.state == hostIsAdded {
+			fmt.Printf("Add hostname: %s\n", host.name)
+		} else {
+			fmt.Printf("Remove hostname: %s\n", host.name)
+		}
 	}
 }
 
-func handleAlreadyRunningContainers(cli *client.Client, hostNameChannel chan string) error {
-	fmt.Println("Scanning already running containers...")
+func handleAlreadyRunningContainers(cli *client.Client, hostNameChannel chan hostNameStatus) error {
+	fmt.Println("Scanning already running containers with \"traefik.enable=true\" label ...")
 	parser := internal.NewLabelParser()
 	ctxWithBackground := context.Background()
 	containers, err := cli.ContainerList(ctxWithBackground, types.ContainerListOptions{})
@@ -33,21 +49,25 @@ func handleAlreadyRunningContainers(cli *client.Client, hostNameChannel chan str
 	}
 
 	for _, container := range containers {
-		fmt.Printf("Checking container ID: %s, Name: %s\n", container.ID[:10], container.Image)
 		if parser.IsTraefikEnabled(container.Labels) {
+			fmt.Println("Found container with \"traefik.enable=true\" label")
+			fmt.Printf("    - ID  : %s\n    - Name: %s\n",
+				container.ID[:10],
+				container.Image,
+			)
 			hostname, err := parser.FindLinkLocalHostName(container.Labels)
 			if err != nil {
 				// No Hostname found
 				continue
 			}
-			hostNameChannel <- hostname
+			hostNameChannel <- hostNameStatus{name: hostname, state: hostIsAdded}
 		}
 	}
 	return nil
 }
 
-func handleAttachContainerEvents(cli *client.Client, hostNameChannel chan string) {
-	fmt.Println("Waiting for new Containers being attached...")
+func handleAttachContainerEvents(cli *client.Client, hostNameChannel chan hostNameStatus) {
+	fmt.Println("Waiting for containers events with the \"traefik.enable=true\" label ...")
 	parser := internal.NewLabelParser()
 	msgs, errs := cli.Events(context.Background(), types.EventsOptions{})
 	for {
@@ -55,15 +75,31 @@ func handleAttachContainerEvents(cli *client.Client, hostNameChannel chan string
 		case err := <-errs:
 			fmt.Println("Error: ", err)
 		case msg := <-msgs:
-			if msg.Type == "container" && msg.Action == "attach" {
-				fmt.Println("Type: ", msg.Type, "Action: ", msg.Action)
-				if parser.IsTraefikEnabled(msg.Actor.Attributes) {
+			// Ignore containers without Traefik being enabled
+			if parser.IsTraefikEnabled(msg.Actor.Attributes) &&
+				(msg.Action == "start" || msg.Action == "stop") {
+				fmt.Println("Found container with \"traefik.enable=true\" label")
+				fmt.Printf(
+					"    - ID    : %s\n    - Name  : %s\n    - Action: %s\n",
+					msg.Actor.ID[:10],
+					msg.Actor.Attributes["image"],
+					msg.Action,
+				)
+				if msg.Type == "container" && msg.Action == "start" {
 					hostname, err := parser.FindLinkLocalHostName(msg.Actor.Attributes)
 					if err != nil {
-						// No Hostname found
+						// No Link Local Hostname found
 						continue
 					}
-					hostNameChannel <- hostname
+					hostNameChannel <- hostNameStatus{name: hostname, state: hostIsAdded}
+				}
+				if msg.Type == "container" && msg.Action == "stop" {
+					hostname, err := parser.FindLinkLocalHostName(msg.Actor.Attributes)
+					if err != nil {
+						// No Link Local Hostname found
+						continue
+					}
+					hostNameChannel <- hostNameStatus{name: hostname, state: hostIsRemoved}
 				}
 			}
 		}
@@ -75,7 +111,7 @@ func rootCmdRunE(cmd *cobra.Command, args []string) error {
 	var err error
 	var cli *client.Client
 
-	hostNameChannel := make(chan string)
+	hostNameChannel := make(chan hostNameStatus)
 	wg.Add(1)
 	go func() {
 		hostNameReceiver(hostNameChannel)
