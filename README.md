@@ -1,4 +1,4 @@
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)![workflow](https://github.com/graugans/traefik-avahi-helper/actions/workflows/commit.yml/badge.svg)
 
 # Overview
 
@@ -10,4 +10,4 @@ When using the reverse proxy [Træfik](https://traefik.io) in a local setup one 
 This is a WIP so please do not expect a working solution.
 
 ## LICENSE
-This software is released under the Apache-2 license. See the [LICENSE](LICENSE) file for details. Some of the resources are released under the MIT License. Please check the related files
+This software is released under the Apache-2 license. See the [LICENSE](LICENSE) file for details. Some of the resources are released under the MIT License. Please check the related files.
