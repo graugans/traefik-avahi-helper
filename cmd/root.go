@@ -7,60 +7,49 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"regexp"
+	"runtime"
+	"sync"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
+	"github.com/graugans/traefik-avahi-helper/internal"
 	"github.com/spf13/cobra"
 )
 
-func HostNameReceiver(ch <-chan string) {
+func hostNameReceiver(ch <-chan string) {
 	for {
 		hostname := <-ch
 		fmt.Printf("Found %s\n", hostname)
 	}
 }
 
-func rootCmdRunE(cmd *cobra.Command, args []string) error {
-
-	hostNameChannel := make(chan string)
-	go HostNameReceiver(hostNameChannel)
-
-	cli, err := client.NewClientWithOpts(client.FromEnv)
-	if err != nil {
-		return err
-	}
+func handleAlreadyRunningContainers(cli *client.Client, hostNameChannel chan string) error {
+	fmt.Println("Scanning already running containers...")
+	parser := internal.NewLabelParser()
 	ctxWithBackground := context.Background()
 	containers, err := cli.ContainerList(ctxWithBackground, types.ContainerListOptions{})
 	if err != nil {
 		return err
 	}
 
-	labelRe, err := regexp.Compile(`traefik\.http\.routers\.(.*)\.rule`) // error if regexp invalid
-	if err != nil {
-		return err
-	}
-	domainRe, err := regexp.Compile(`(?P<domain>[^\x60]*?\.local)`) // error if regexp invalid
-	if err != nil {
-		return err
-	}
 	for _, container := range containers {
 		fmt.Printf("Checking container ID: %s, Name: %s\n", container.ID[:10], container.Image)
-		if container.Labels["traefik.enable"] == "true" {
-			for key, value := range container.Labels {
-				if labelRe.Match([]byte(key)) {
-					match := domainRe.FindStringSubmatch(value)
-					if len(match) > 0 {
-						hostname := match[0]
-						hostNameChannel <- hostname
-					}
-				}
+		if parser.IsTraefikEnabled(container.Labels) {
+			hostname, err := parser.FindLinkLocalHostName(container.Labels)
+			if err != nil {
+				// No Hostname found
+				continue
 			}
+			hostNameChannel <- hostname
 		}
 	}
+	return nil
+}
 
+func handleAttachContainerEvents(cli *client.Client, hostNameChannel chan string) {
+	fmt.Println("Waiting for new Containers being attached...")
+	parser := internal.NewLabelParser()
 	msgs, errs := cli.Events(context.Background(), types.EventsOptions{})
-
 	for {
 		select {
 		case err := <-errs:
@@ -68,21 +57,51 @@ func rootCmdRunE(cmd *cobra.Command, args []string) error {
 		case msg := <-msgs:
 			if msg.Type == "container" && msg.Action == "attach" {
 				fmt.Println("Type: ", msg.Type, "Action: ", msg.Action)
-				if msg.Actor.Attributes["traefik.enable"] == "true" {
-					for key, value := range msg.Actor.Attributes {
-						if labelRe.Match([]byte(key)) {
-							match := domainRe.FindStringSubmatch(value)
-							if len(match) > 0 {
-								hostname := match[0]
-								hostNameChannel <- hostname
-							}
-						}
+				if parser.IsTraefikEnabled(msg.Actor.Attributes) {
+					hostname, err := parser.FindLinkLocalHostName(msg.Actor.Attributes)
+					if err != nil {
+						// No Hostname found
+						continue
 					}
+					hostNameChannel <- hostname
 				}
 			}
 		}
 	}
-	return err
+}
+
+func rootCmdRunE(cmd *cobra.Command, args []string) error {
+	var wg sync.WaitGroup
+	var err error
+	var cli *client.Client
+
+	hostNameChannel := make(chan string)
+	wg.Add(1)
+	go func() {
+		hostNameReceiver(hostNameChannel)
+		wg.Done()
+	}()
+
+	cli, err = client.NewClientWithOpts(client.FromEnv)
+	if err != nil {
+		return err
+	}
+	err = handleAlreadyRunningContainers(cli, hostNameChannel)
+	if err != nil {
+		return err
+	}
+	// Give the hostNameReceiver a chance to do its job
+	runtime.Gosched()
+
+	// Handle Attach events of new containers being added
+	wg.Add(1)
+	go func() {
+		handleAttachContainerEvents(cli, hostNameChannel)
+		wg.Done()
+	}()
+
+	wg.Wait()
+	return nil
 }
 
 // rootCmd represents the base command when called without any subcommands
