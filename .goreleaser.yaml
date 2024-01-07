@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2023   <mailgrishy@gmail.com>
+# Copyright (c) 2024 Christian Ege <ch@ege.io>
+
+# For the version see: https://github.com/goreleaser/goreleaser/pull/4391
+version: 1
+
+report_sizes: true
+
+builds:
+  # https://goreleaser.com/customization/build/
+  - env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -w -s
+    goos:
+      - linux
+    goarch:
+      - "amd64"
+      - "arm"
+      - "arm64"
+    goarm:
+    # GOARM=6: use VFPv1 only; default if cross compiling; usually ARM11 or better cores (VFPv2 or better is also supported)
+    # GOARM=7: use VFPv3; usually Cortex-A cores
+      - "6"
+      - "7"
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  # https://goreleaser.com/customization/archive/
+  - format: tar.gz
+    name_template: "{{ .ProjectName }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+
+checksum:
+  # https://goreleaser.com/customization/checksum/
+  name_template: "checksums.txt"
+
+release:
+  # https://goreleaser.com/customization/release/
+  target_commitish: "{{ .Commit }}"
+  mode: replace
+  header: |
+    ## ℹ️ For information on how to install and use please see `README.md`
+  footer: |
+    Your PRs & issues are welcome! Thanks 😉
+  disable: false
+  skip_upload: false
+
+changelog:
+  # https://goreleaser.com/customization/changelog/
+  sort: asc
