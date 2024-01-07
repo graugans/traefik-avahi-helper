@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2023   <mailgrishy@gmail.com>
+# Copyright (c) 2023 Sergey G <mailgrishy@gmail.com>
 # Copyright (c) 2024 Christian Ege <ch@ege.io>
 
 name: release
@@ -44,15 +44,6 @@ jobs:
         with:
           images: |
             ghcr.io/${{ github.repository }}
-
-      - name: 🔖 Generate a Release with GoReleaser
-        uses: goreleaser/goreleaser-action@v4
-        with:
-          distribution: goreleaser
-          version: latest
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 🚀 Build and push Docker 🐋 images
         uses: docker/build-push-action@v4
