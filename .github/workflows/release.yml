@@ -38,14 +38,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels) for Docker
+      - name: 📈 Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v4
         with:
           images: |
             ghcr.io/${{ github.repository }}
 
-      - uses: goreleaser/goreleaser-action@v4
+      - name: 🔖 Generate a Release with GoReleaser
+        uses: goreleaser/goreleaser-action@v4
         with:
           distribution: goreleaser
           version: latest
@@ -53,7 +54,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push Docker images
+      - name: 🚀 Build and push Docker 🐋 images
         uses: docker/build-push-action@v4
         with:
           context: .
