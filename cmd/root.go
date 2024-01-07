@@ -18,7 +18,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type HostnameStatus int
+type hostnameStatus int
 
 const (
 	hostIsAdded   = 0
@@ -27,7 +27,7 @@ const (
 
 type hostNameStatus struct {
 	name  string
-	state HostnameStatus
+	state hostnameStatus
 }
 
 func hostNameReceiver(publisher *avahi.Publisher, ch <-chan hostNameStatus) {
@@ -35,17 +35,18 @@ func hostNameReceiver(publisher *avahi.Publisher, ch <-chan hostNameStatus) {
 	for {
 		host := <-ch
 		if host.state == hostIsAdded {
-			fmt.Printf("Add hostname: %s\n", host.name)
+			fmt.Printf("Add CNAME: %s\n", host.name)
 			if !slices.Contains(hosts, host.name) {
 				hosts = append(hosts, host.name)
 			}
 
 		} else {
-			fmt.Printf("Remove hostname: %s\n", host.name)
+			fmt.Printf("Remove CNAME: %s\n", host.name)
 			if slices.Contains(hosts, host.name) {
 				index := slices.Index(hosts, host.name)
 				hosts = append(hosts[:index], hosts[index+1:]...)
 			}
+			fmt.Printf("TODO remove CNAME form AVAHI")
 		}
 		if len(hosts) > 0 {
 			fmt.Println("The host names we manage:")
