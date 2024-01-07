@@ -6,7 +6,7 @@ name: release
 
 on:
   release:
-    types: [published]
+    types: [released]
 
 permissions:
   packages: write
