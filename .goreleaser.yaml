@@ -41,10 +41,6 @@ release:
   # https://goreleaser.com/customization/release/
   target_commitish: "{{ .Commit }}"
   mode: replace
-  header: |
-    ## ℹ️ For information on how to install and use please see `README.md`
-  footer: |
-    Your PRs & issues are welcome! Thanks 😉
   disable: false
   skip_upload: false
 
