@@ -29,5 +29,16 @@ There are a couple of alternatives to this approach
 
 This is a WIP so please do not expect a working solution.
 
+## Usage
+
+The intended use case is to run the Docker Container and provide both the Docker socket and the DBus socket to this container.
+
+- `/var/run/docker.sock`, is the default Docker socket. This can be overwritten with the Environment variable `"DOCKER_HOST": "unix:///var/run/docker-host.sock"`
+- `/var/run/dbus/system_bus_socket`, is the default System DBus socket.
+
+### Configuration
+
+The only configuration parameter for the `traefik-avahi-helper` is the environment variable `CNAME_TTL` with a default of `600`.
+
 ## LICENSE
 This software is released under the Apache-2 license. See the [LICENSE](LICENSE) file for details. Some of the resources are released under the MIT License. Please check the related files.

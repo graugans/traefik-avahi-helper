@@ -32,6 +32,7 @@ type hostNameStatus struct {
 
 func hostNameReceiver(publisher *avahi.Publisher, ch <-chan hostNameStatus) {
 	hosts := []string{}
+
 	for {
 		host := <-ch
 		if host.state == hostIsAdded {
@@ -54,7 +55,12 @@ func hostNameReceiver(publisher *avahi.Publisher, ch <-chan hostNameStatus) {
 				fmt.Println("   - ", hosts[i])
 			}
 		}
-		err := publisher.PublishCNAMES(hosts, 600)
+		ttl := internal.TTLValueFromEnvironment()
+		fmt.Println("We are using a TTL value of: ", ttl)
+		err := publisher.PublishCNAMES(
+			hosts,
+			ttl,
+		)
 		if err != nil {
 			fmt.Println("Error while Publishing CNAMES: ", err)
 		}

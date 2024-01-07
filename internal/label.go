@@ -1,3 +1,8 @@
+/*
+SPDX-License-Identifier: Apache-2
+Copyright © 2024 Christian Ege <ch@ege.io>
+*/
+
 package internal
 
 import (
